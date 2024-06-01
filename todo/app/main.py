@@ -6,12 +6,15 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select, Sequence
 from fastapi import FastAPI, Depends
 from typing import AsyncGenerator
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
+from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import json
 
 class Todo(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     content: str = Field(index=True)
+
+
 
 
 # only needed for psycopg 3 - replace postgresql
@@ -68,17 +71,31 @@ async def lifespan(app: FastAPI)-> AsyncGenerator[None, None]:
     task = asyncio.create_task(consume_messages('todos', 'broker:19092'))
     create_db_and_tables()
     yield
+    
+    
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost",
+    "http://localhost:8080",
+]
 
 
 app = FastAPI(lifespan=lifespan, title="Hello World API with DB", 
     version="0.0.1",
     servers=[
         {
-            "url": "http://127.0.0.1:8000", # ADD NGROK URL Here Before Creating GPT Action
+            "url": "http://localhost:8000", # ADD NGROK URL Here Before Creating GPT Action
             "description": "Development Server"
         }
         ])
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 def get_session():
     with Session(engine) as session:
         yield session
@@ -104,9 +121,9 @@ async def create_todo(todo: Todo, session: Annotated[Session, Depends(get_sessio
         print("todoJSON:", todo_json)
         # Produce message
         await producer.send_and_wait("todos", todo_json)
-        # session.add(todo)
-        # session.commit()
-        # session.refresh(todo)
+        session.add(todo)
+        session.commit()
+        session.refresh(todo)
         return todo
 
 
