@@ -99,7 +99,7 @@ async def get_kafka_producer():
 
 @app.post("/todos/", response_model=Todo)
 async def create_todo(todo: Todo, session: Annotated[Session, Depends(get_session)], producer: Annotated[AIOKafkaProducer, Depends(get_kafka_producer)])->Todo:
-        todo_dict = {field: getattr(todo, field) for field in todo.dict()}
+        todo_dict = {field: getattr(todo, field) for field in todo.model_dump()}
         todo_json = json.dumps(todo_dict).encode("utf-8")
         print("todoJSON:", todo_json)
         # Produce message
